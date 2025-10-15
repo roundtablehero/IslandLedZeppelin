@@ -1,28 +1,24 @@
 package com.javarush.island.kozlov.entity.animals.predators;
 
-import com.javarush.island.kozlov.entity.animals.Animal;
+import com.javarush.island.kozlov.behaviors.PredatorEatingBehavior;
 import com.javarush.island.kozlov.entity.animals.Predator;
-import com.javarush.island.kozlov.entity.animals.herbivores.*;
+import com.javarush.island.kozlov.world.Cell;
+import com.javarush.island.kozlov.world.Island;
 
 public class Wolf extends Predator {
     public Wolf() {
-        super(50, 30, 3, 8); //Вес: 50 кг, макс в клетке 30, скорость 3, еда 8 кг.
-
-//        eatProbabilities.put(Rabbit.class, 60);
-//        eatProbabilities.put(Boar.class, 15);
-//        eatProbabilities.put(Buffalo.class, 10);
-//        eatProbabilities.put(Deer.class, 15);
-        eatProbabilities.put(Duck.class, 40);
-//        eatProbabilities.put(Goat.class, 60);
-//        eatProbabilities.put(Horse.class, 10);
-//        eatProbabilities.put(Rabbit.class, 60);
-//        eatProbabilities.put(Sheep.class, 70);
-
-
+        super(50, 30, 3, 8);
+        setEatingBehavior(new PredatorEatingBehavior());
     }
 
     @Override
-    public Animal createNew() {
-        return new Wolf();
+    public void move(Island island, int row, int col) {
+        this.move(island, island.getMap()[row][col], this, row, col);
     }
+
+    @Override
+    public void canReproduce(Cell cell) {
+        this.reproduce(cell, this, Wolf.class);
+    }
+
 }

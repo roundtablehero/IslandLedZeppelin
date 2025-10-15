@@ -5,9 +5,9 @@ import com.javarush.island.kozlov.entity.animals.Predator;
 import com.javarush.island.kozlov.world.Cell;
 import com.javarush.island.kozlov.world.Island;
 
-public class Eagle extends Predator {
-    public Eagle() {
-        super(6, 20, 3, 1);
+public class Boa extends Predator {
+    public Boa() {
+        super(15, 30, 1, 3);
         setEatingBehavior(new PredatorEatingBehavior());
     }
 
@@ -18,6 +18,6 @@ public class Eagle extends Predator {
 
     @Override
     public void canReproduce(Cell cell) {
-        this.reproduce(cell, this, Eagle.class);
+        this.reproduce(cell, this, Boa.class);
     }
 }

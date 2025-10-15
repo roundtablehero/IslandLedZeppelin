@@ -1,101 +1,145 @@
 package com.javarush.island.kozlov.entity.animals;
 
-import com.javarush.island.kozlov.map.Cell;
-import com.javarush.island.kozlov.Direction;
-import com.javarush.island.kozlov.map.Island;
-import com.javarush.island.kozlov.api.action.Eatable;
-import com.javarush.island.kozlov.api.action.Movable;
-import com.javarush.island.kozlov.api.action.Reproducible;
+import com.javarush.island.kozlov.behaviors.*;
+import com.javarush.island.kozlov.settings.AnimalEmojis;
+import com.javarush.island.kozlov.settings.FoodSettings;
+import com.javarush.island.kozlov.world.Cell;
+import com.javarush.island.kozlov.world.Island;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
-public abstract class Animal implements Movable, Reproducible, Eatable {
-    protected double weight; // Вес особи в кг
-    protected int maxPerCell; // Макс. кол-во животных одного вида в одной клетке
-    protected int speed; // Клеток за ход (скорость)
-    protected double foodNeeded; // Сколько еды нужно для полного насыщения
-    protected double currentSaturation; // Текущая сытость (Уменьшается каждый такт)
-    protected final Map<Class<? extends Eatable>, Integer> eatProbabilities; // Вероятность поедания других объектов
+public abstract class Animal implements Movable, Reproducible, Actable, Alive {
+    protected double weight;
+    protected int maxOnCell;
+    protected int speed;
+    protected double currentFoodValue;
+    protected double maxFoodValue;
+    protected double foodNeeded;
+    protected boolean acted;
+    protected boolean isMale;
+    protected int reproduceCooldown;
+    protected double foodEaten;
+    protected EatingBehavior eatingBehavior;
 
-    public Animal(double weight, int maxPerCell, int speed, double foodNeeded) {
+    private static FoodSettings foodSettings = new FoodSettings(3.0);
+
+
+    public Animal(double weight, int maxOnCell, int speed, double foodNeeded) {
         this.weight = weight;
-        this.maxPerCell = maxPerCell;
+        this.maxOnCell = maxOnCell;
         this.speed = speed;
         this.foodNeeded = foodNeeded;
-        this.currentSaturation = foodNeeded / 4; // Сытость на старте (50%)
-        this.eatProbabilities = new HashMap<>();
+        this.maxFoodValue = foodNeeded * foodSettings.getMaxFoodMultiplier();
+        this.currentFoodValue = maxFoodValue; // животное появляется сытым
+        this.isMale = Math.random() < 0.5;
+        //System.out.println(getNameWithGender() + " created with maxFoodValue: " + maxFoodValue + ", currentFoodValue: " + currentFoodValue);
     }
 
-    public abstract void eat(Cell cell);
+    public static void setFoodSettings(FoodSettings settings) {
+        foodSettings = settings;
+    }
 
-    @Override
-    public void reproduce(Cell cell) {
-        cell.cellLock.lock();
-        try {
-            long sameTypeCount = cell.animals.stream()
-                    .filter(a -> a.getClass() == this.getClass())
-                    .count();
-            if (sameTypeCount >= 2 && cell.animals.size() < maxPerCell &&
-                    ThreadLocalRandom.current().nextBoolean()) {
-                Animal baby = createNew();
-                cell.addAnimal(baby);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            cell.cellLock.unlock();
+    public boolean dieIfStarving(Cell cell) {
+        if (currentFoodValue <= 0) {
+            cell.getAnimals().remove(this);
+            //System.out.println(getNameWithGender() + " умер от голода!💀");
+            return true; // умер
         }
-    }
-
-    public abstract Animal createNew();
-
-    public Direction chooseDirection() {
-        return Direction.random();
+        return false; // жив
     }
 
     @Override
-    public void move(Cell currentCell, Island island) {
-        for (int step = 0; step < speed; step++) {
-            Direction direction = chooseDirection();
-            int newX = currentCell.x + (direction == Direction.RIGHT ? 1 : direction == Direction.LEFT ? -1 : 0);
-            int newY = currentCell.y + (direction == Direction.UP ? 1 : direction == Direction.DOWN ? -1 : 0);
-            if (island.isValid(newX, newY)) {
-                Cell newCell = island.getCell(newX, newY);
-                if (newCell.getAnimalsByType(this.getClass()).size() < maxPerCell) {
-                    currentCell.removeAnimal(this);
-                    newCell.addAnimal(this);
-                    break;
-                }
-            }
-        }
-    }
-
-    public boolean isDead() {
-        currentSaturation -= 2;
-
-        if (currentSaturation < 0) {
-            currentSaturation = 0;
-            return true;
-        }
-        return false;
+    public boolean hasActed() {
+        return acted;
     }
 
     @Override
-    public double getWeight() {
-        return weight;
+    public void setHasActed(boolean acted) {
+        this.acted = acted;
     }
 
-    public double getCurrentSaturation() {
-        return currentSaturation;
+    @Override
+    public double getCurrentFoodValue() {
+        return currentFoodValue;
     }
 
     public double getFoodNeeded() {
         return foodNeeded;
     }
 
-    public int getMaxPerCell() {
-        return maxPerCell;
+    @Override
+    public void setCurrentFoodValue(double value) {
+        this.currentFoodValue = value;
+    }
+
+    // Общий метод для названия с полом и эмодзи
+    public String getNameWithGender() {
+        return AnimalEmojis.getEmoji(getClass().getSimpleName()) + getClass().getSimpleName() + (isMale ? "(M)" : "(F)");
+    }
+
+    public abstract void move(Island island, int row, int col);
+
+    public abstract void canReproduce(Cell cell);
+
+
+    public boolean isMale() {
+        return isMale;
+    }
+
+    public double getWeight() {
+        return weight;
+    }
+
+    public int getSpeed() {
+        return speed;
+    }
+
+    public int getReproduceCooldown() {
+        return reproduceCooldown;
+    }
+
+    public void setReproduceCooldown(int turns) {
+        reproduceCooldown = turns;
+    }
+
+    public void decreaseCooldown() {
+        if (reproduceCooldown > 0) reproduceCooldown--;
+    }
+
+    public int getMaxOnCell() {
+        return maxOnCell;
+    }
+
+
+    public void updateCurrentFoodValue(double eaten) {
+        currentFoodValue += eaten;
+        if (currentFoodValue > maxFoodValue) {
+            currentFoodValue = maxFoodValue;
+        }
+
+        currentFoodValue -= foodNeeded / 6; // Уменьшаем на норму каждый шаг (делим на 6, для баланса)
+        if (currentFoodValue < 0) { // А то умирали слишком быстро от голода
+            currentFoodValue = 0;
+        }
+        currentFoodValue = roundToTwoDecimals(currentFoodValue);
+        //System.out.println(getNameWithGender() + " food: " + currentFoodValue);
+    }
+
+    private double roundToTwoDecimals(double value) {
+        return new BigDecimal(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    public void setEatingBehavior(EatingBehavior eatingBehavior) {
+        this.eatingBehavior = eatingBehavior;
+    }
+
+    public void eat(Cell cell) {
+        if (eatingBehavior != null) {
+            eatingBehavior.eat(cell, this);
+        }
+        else {
+            updateCurrentFoodValue(0); // ничего не съел
+        }
     }
 }
